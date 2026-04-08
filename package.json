@@ -17,6 +17,9 @@
   "devDependencies": {
     "nodemon": "^3.1.14"
   },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/DarynG4/miette-backend.git"
