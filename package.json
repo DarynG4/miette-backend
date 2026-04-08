@@ -1,0 +1,31 @@
+{
+  "name": "miette-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Miette — a sewing project tracker with a social layer",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.1",
+    "express": "^5.2.1",
+    "pg": "^8.20.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DarynG4/miette-backend.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "homepage": "https://github.com/DarynG4/miette-backend#readme",
+  "bugs": {
+    "url": "https://github.com/DarynG4/miette-backend/issues"
+  }
+}
