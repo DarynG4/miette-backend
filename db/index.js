@@ -1,4 +1,5 @@
 import "dotenv/config";
+
 /*
 Client is a single database connection. With a single Client if two requests hit the database at the exact same moment, one gets queued. Additionally, if that single connection drops — a network hiccup, a Postgres timeout, anything — your entire server loses database access until you manually reconnect.
 
