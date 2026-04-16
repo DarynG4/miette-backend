@@ -12,7 +12,7 @@ connect to database
   → insert follows using user ids
 disconnect
 
- 1. Étienne — active user, follows Noémie, multiple projects, categories, followers, likes
+    1. Étienne — active user, follows Noémie, multiple projects, categories, followers, likes
     2. Fossette — active user, follows Étienne and Cymbeline, has projects, no categories, followers, likes
     3. Cymbeline — active user, follows Étienne, multiple projects, categories, followers, likes
     4. Fianna —  registered but empty, no projects, no categories, follows Fossette, likes
@@ -78,11 +78,11 @@ async function seed() {
       `INSERT INTO categories (user_id, name) VALUES 
         ($1, 'Womenswear'),
         ($1, 'Commissioned Pieces'),
-        ($2, 'Dreamy Things'),
-        ($2, 'Natural Fabrics'),
-        ($3, 'For the Archive')
+        ($2, 'For the Archive'),
+        ($3, 'Dreamy Things'),
+        ($3, 'Natural Fabrics')
         RETURNING id, name, user_id`,
-      [etienne.id, noemie.id, cymbeline.id],
+      [etienne.id, cymbeline.id, noemie.id],
     );
 
     // destructure categories into named variables so that when you assign projects to categories later you'll write etienneWomenswear.id rather than categories[0].id
@@ -90,9 +90,9 @@ async function seed() {
     const [
       etienneWomenswear,
       etienneCommissioned,
+      cymbelineArchive,
       noemieDreamy,
       noemieNatural,
-      cymbelineArchive,
     ] = categories;
 
     console.log("✓ Categories seeded");
@@ -100,6 +100,90 @@ async function seed() {
     // ============================================================
     // PROJECTS
     // ============================================================
+
+    // projects span all four statuses across four users
+    // étienne's project 3 is private — tests visibility logic in queries
+    // fossette and cymbeline have no category_id — tests uncategorized container
+
+    // ARRAY['', ''] is postgresql's array literal syntax and is how you insert a value into a text[] column
+
+    // is_self_drafted and uses_pattern are mutually exclusive in the UI but not enforced at the database level
+    const { rows: projects } = await pool.query(
+      `INSERT INTO projects (user_id, category_id, title, status, is_public, description, season, item_type, uses_pattern, pattern_name, pattern_size, pattern_link, pattern_adjustments, is_self_drafted, is_upcycled, previous_item_type, fabric, thread, haberdashery) 
+      VALUES 
+      -- étienne: complete womenswear project in Womenswear category
+      ($1, $7, 'Atelier Dress', 'complete', true, 'A tailored dress made for the spring collection. Clean lines, minimal seaming.', ARRAY['spring', 'summer'], 'dress', true, 'Vogue Patterns V2153', 'US 10', 'https://simplicity.com/vogue-patterns/v2153', 'Full Bust Adjustment, lengthened bodice by 3cm, removed waist seam', false, false, null, 'Silk crepe de chine in ivory', 'Gutermann 800', 'invisible zip, hook and eyes, interfacing, shoulder pads, buckle'),
+
+      -- étienne: in_progress commissioned piece
+      ($1, $8, 'Wedding Guest Coat', 'in_progress', true, 'Commission for a client. Structured coat with contrast lining.', ARRAY['spring'], 'coat', true, '112 | Burda Style 06/23', 'Burda 36 (US 6)', null, 'Widened shoulders for shoulder pads, added welt pockets', false, false, null, 'Wool crepe in champagne', 'Gutermann 722', 'horn buttons, interfacing, shoulder pads'),
+
+      -- étienne: planning project with no category, private
+      ($1, null, 'Something Bias', 'planning', false, 'Not sure yet. A bias-cut something. Feeling my way through.', ARRAY['autumn', 'winter'], 'dress', false, null, null, null, null, true, false, null, null, null, null),
+      
+      -- fossette: complete project, no category
+      ($2, null, 'First Completed Garment', 'complete', true, 'The first thing I ever finished. A disaster in the best way possible. I learned so much.', ARRAY['spring', 'summer', 'autumn', 'winter'], 'top', false, null, null, null, null, true, false, null, 'Cotton poplin in white', 'white cotton thread', null),
+      
+      -- fossette: in_progress project, no category
+      ($2, null, 'Bias Slip Dress', 'in_progress', true, 'Currently obsessed with bias cut. This is the practice run before the real one.', ARRAY['spring', 'summer'], 'dress', true, 'Nelly Dress by VikiSews', 'Height 170-176, Size 38', 'https://vikisews.com/vykrojki/dresses/nelly-dress/', null, false, false, null, 'Silk satin in dusty rose', 'matching silk thread', null),
+      
+      -- cymbeline: altering project in For the Archive category
+      ($3, $9, 'The Coat That Never Dies', 'altering', true, 'I''ve been altering this coat for six years. It''s lived many lives.', ARRAY['autumn', 'winter'], 'coat', false, null, null, null, null, true, true, 'Oversized wool coat', 'Boiled wool in charcoal', null, 'vintage buttons'),
+      
+      -- cymbeline: complete project, no category
+      ($3, null, 'Linen Trousers', 'complete', true, 'Self-drafted wide leg trousers. Finally got the rise right after three toiles.', ARRAY['spring', 'summer'], 'trousers', false, null, null, null, null, true, false, null, 'Medium weight linen in sand', 'matching linen thread', 'Zip fly, waistband interfacing'),
+      
+      -- noémie: planning project in Dreamy Things category
+      ($6, $10, 'Floaty Summer Dress', 'planning', true, 'I want something completely impractical and completely beautiful.', ARRAY['summer'], 'dress', false, null, null, null, null, false, false, null, null, null, null),
+      
+      -- noémie: complete project in Natural Fabrics category
+      ($6, $11, 'Linen Shirt Dress', 'complete', true, 'Simple and wearable. Made this three times now in different fabrics.', ARRAY['spring', 'summer', 'autumn'], 'dress', true, 'TESSUTI • Tosca Tunic', 'Size 1', 'https://drapersdaughter.com/products/tessuti-tosca-tunic-sewing-pattern-6-22', 'Shortened hem by 8cm', false, false, null, 'Washed linen in sage green', 'Gutermann 553', null)
+      RETURNING id, title, user_id`,
+      [
+        etienne.id, // $1
+        fossette.id, // $2
+        cymbeline.id, // $3
+        fianna.id, // $4
+        cian.id, // $5 (not used in projects, needed for likes/follows)
+        noemie.id, // $6 (not used in projects, needed for likes/follows)
+        etienneWomenswear.id, // $7
+        etienneCommissioned.id, // $8
+        cymbelineArchive.id, // $9
+        noemieDreamy.id, // $10
+        noemieNatural.id, // $11
+      ],
+    );
+
+    const [
+      etienneAtelier,
+      etienneCoat,
+      etienneBias,
+      fossetteFirst,
+      fossetteSlip,
+      cymbelineCoat,
+      cymbelineTrousers,
+      noemieSummer,
+      noemieShirt,
+    ] = projects;
+
+    console.log("✓ Projects seeded");
+
+    // ============================================================
+    // PROJECTS STATUS HISTORY
+    // ============================================================
+
+    console.log("✓ Projects Status History seeded");
+
+    // ============================================================
+    // LIKES
+    // ============================================================
+
+    console.log("✓ Likes seeded");
+
+    // ============================================================
+    // FOLLOWS
+    // ============================================================
+
+    console.log("✓ Follows seeded");
 
     console.log("🌱 Database successfully seeded!");
   } catch (error) {
