@@ -2,60 +2,17 @@ import "dotenv/config";
 import pool from "./index.js";
 import bcrypt from "bcrypt";
 
-/*
-connect to database
-  → insert users, collect their ids
-  → insert categories using user ids, collect category ids
-  → insert projects using user + category ids, collect project ids
-  → insert status history using project ids
-  → insert likes using user + project ids
-  → insert follows using user ids
-disconnect
-
-    1. Étienne — active user, follows Noémie, multiple projects, categories, followers, likes
-    2. Fossette — active user, follows Étienne and Cymbeline, has projects, no categories, followers, likes
-    3. Cymbeline — active user, follows Étienne, multiple projects, categories, followers, likes
-    4. Fianna —  registered but empty, no projects, no categories, follows Fossette, likes
-    5. Cian — semi-active user, no projects, no categories, follows Étienne and Cymbeline and Fossette, no followers, likes
-    6. Noémie — active user, follows Étienne and Cymbeline, has projects, has categories, Étienne is her only follower, likes
-*/
-
-// seed is wrapped in a single database transaction (BEGIN, COMMIT, ROLLBACK)
-// this is so that if anything within the seed fails everything is rolled back automatically and no partial data is committed to the database
 async function seed() {
-  // pool.connect() checks out a dedicated client from the pool as transactions MUST happen on a single connection
-  // if you use pool.query() for a transaction, different queries might land on different pool connections and then the transaction will break
   const client = await pool.connect();
 
   try {
-    // BEGIN starts a new transaction block
     await client.query("BEGIN");
 
     // ============================================================
     // USERS
     // ============================================================
-
     const password = await bcrypt.hash("password4", 12);
 
-    // a pool manages connections internally so you never call .connect() on the pool itself
-    // you call pool.query() directly and the pool handles borrowing and returning a connection automatically
-    // you simply call pool.query() inside the seed function and the pool handles everything
-
-    // postgresql's parameterized query syntax allows a single parameter to be referenced multiple times in the same query
-    // $1 always refers to the first element of the params array — [password] — regardless of how many times it appears
-    // don't need $1, $2, $3, $4, $5 for five identical values
-
-    // normalize accented characters out of usernames entirely but keep in first name,
-    // last name, display names and bios
-
-    // pool.query() returns an object with a rows array containing the returned rows
-    // destructuring { rows: users } gives you the array directly with a meaningful name
-
-    // returning id, username instead of returning * because you only need the id for the following inserts
-    // username is included purely to make console logs readable during debugging
-
-    // in sql, '' (two single quotes) inside a single-quoted string represents one literal apostrophe
-    // without it postgresql sees 'I have to — it' as a complete string, then s in the blood... as unexpected syntax, and throws a syntax error
     const { rows: users } = await client.query(
       `INSERT INTO users (username, email, password_hash, first_name, display_name, last_name, bio) VALUES 
       ('etienne.marchand', 'etienne@example.com', $1, 'Étienne', 'Étienne', 'Marchand', 'Womenswear designer based in Paris. I sew because I have to — it''s in the blood.'), 
@@ -68,8 +25,6 @@ async function seed() {
       [password],
     );
 
-    // destructures the five returned rows into named variables so downstream inserts read cleanly
-    // example --> etienne.id instead of users[0].id
     const [etienne, fossette, cymbeline, fianna, cian, noemie] = users;
 
     console.log("✓ Users seeded");
@@ -77,12 +32,6 @@ async function seed() {
     // ============================================================
     // CATEGORIES
     // ============================================================
-
-    // each $ index refers to a different element in the params array by position. $1 is etienne.id, $2 is noemie.id, $3 is cymbeline.id
-    // unlike the users insert where every row used the same password, categories need different user_id values per row so that each gets its own parameter reference
-
-    // returning id, name, and user_id because you need id to assign projects to categories later
-    // name and user_id are included for readability during debugging — if seeding fails partway through you can read the output and know exactly which categories were created
     const { rows: categories } = await client.query(
       `INSERT INTO categories (user_id, name) VALUES 
         ($1, 'Womenswear'),
@@ -94,8 +43,6 @@ async function seed() {
       [etienne.id, cymbeline.id, noemie.id],
     );
 
-    // destructure categories into named variables so that when you assign projects to categories later you'll write etienneWomenswear.id rather than categories[0].id
-    // named variables make it so you're not guessing which index corresponds to which category
     const [
       etienneWomenswear,
       etienneCommissioned,
@@ -109,14 +56,6 @@ async function seed() {
     // ============================================================
     // PROJECTS
     // ============================================================
-
-    // projects span all four statuses across four users
-    // étienne's project 3 is private — tests visibility logic in queries
-    // fossette and cymbeline have no category_id — tests uncategorized container
-
-    // ARRAY['', ''] is postgresql's array literal syntax and is how you insert a value into a text[] column
-
-    // is_self_drafted and uses_pattern are mutually exclusive in the UI but not enforced at the database level
     const { rows: projects } = await client.query(
       `INSERT INTO projects (user_id, category_id, title, status, is_public, description, notes, season, item_type, uses_pattern, pattern_name, pattern_size, pattern_link, pattern_adjustments, is_self_drafted, is_upcycled, previous_item_type, fabric, thread, haberdashery) 
       VALUES 
@@ -177,15 +116,6 @@ async function seed() {
     // ============================================================
     // PROJECTS STATUS HISTORY
     // ============================================================
-
-    // snapshots capture project state at the moment a status transition occurred
-    // status_from = the status being LEFT, not the status being entered
-    // fields reflect what was filled in at that point in the project's journey
-    // projects currently in their original status have no history rows
-
-    // No RETURNING clause and no const { rows } = ... assignment because you don't need any ids from history rows since nothing else in the seed references them and the history rows have no children that depend on them
-    // RETURNING is only needed when following inserts depend on the returned ids
-    // pool.query() still executes correctly either way. The assignment (const { rows } = ...) and clause (RETURNING) is purely about whether you need what comes back
     await client.query(
       `INSERT INTO project_status_history (project_id, title, status_from, description, notes, season, item_type, uses_pattern, pattern_name, pattern_size, pattern_link, pattern_adjustments, is_self_drafted, is_upcycled, previous_item_type, fabric, thread, haberdashery) 
         VALUES
@@ -301,25 +231,16 @@ async function seed() {
 
     console.log("✓ Follows seeded");
 
-    // COMMIT saves all changes made during the transaction to the database permanently
     await client.query("COMMIT");
     console.log("🌱 Database successfully seeded!");
   } catch (error) {
-    // ROLLBACK cancels all changes made in the current transaction, reverting the data to its state before the transaction began
     await client.query("ROLLBACK");
     console.error("❌ Seeding failed, all changes rolled back:", error);
   } finally {
-    // client.release() returns the dedicated connection back to the pool
-    // must happen before pool.end() since ending the pool while a client is still checked out causes a warning
     client.release();
 
-    // in a finally block so the pool closes cleanly whether the seed succeeds or throws an error
     await pool.end();
   }
 }
-
-// the call at the bottom is the right pattern for pg.Pool with try/catch/finally
-// the pool opens connections automatically when queries run and pool.end() in finally closes them cleanly when everything is done or when an error is thrown
-// there's no better or more explicit way to write it
 
 seed();

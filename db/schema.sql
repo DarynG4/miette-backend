@@ -67,7 +67,7 @@ CREATE TABLE projects(
     status project_status NOT NULL DEFAULT 'planning',
     is_public boolean NOT NULL DEFAULT true,
     description text,
-    notes text, -- working notes, always available regardless of status or pattern toggle
+    notes text,
     season text[],
     item_type text,
     uses_pattern boolean DEFAULT false,
