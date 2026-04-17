@@ -13,10 +13,19 @@ Also, Client requires you to call db.connect() before running any query and db.e
 // hence pg.Pool rather than importing Pool directly
 import pg from "pg";
 
+// ssl is required for remote databases (render) but not for local postgresql
+// checking the connection string for localhost avoids needing a separate environment variable
+// checking the connection string is also more reliable because it reflects exactly where the connection is
+const isLocal = process.env.DATABASE_URL?.includes("localhost");
+
 // constructing a new Pool instance. the object passed in is the configuration
 // connectionString tells pg where the Postgres database lives
 // new keyword is required because pg.Pool is a class
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+// rejectUnauthorized: false because node ssl implementation automatically rejects self-signed certificates — which is what Render uses — so setting it to false tells the pg client to accept the certificate anyway
+const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: isLocal ? false : { rejectUnauthorized: false },
+});
 
 // registers an event listener on the pool
 // pools maintain multiple connections simultaneously, and occasionally a connection that's sitting idle can encounter an unexpected error
