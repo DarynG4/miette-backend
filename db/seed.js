@@ -245,7 +245,34 @@ async function seed() {
     // ============================================================
     // LIKES
     // ============================================================
-    await client.query(`INSERT INTO likes (user_id, project_id) VALUES ()`, []);
+    await client.query(
+      `INSERT INTO likes (user_id, project_id) VALUES 
+        ($1, $12), -- étienne likes noémie's linen shirt dress
+        ($2, $7), -- fossette likes étienne's atelier dress
+        ($2, $11), -- fossette likes cymbeline's linen trousers
+        ($3, $7), -- cymbeline likes étienne's atelier dress
+        ($3, $8), -- cymbeline likes fossette's first completed garment
+        ($4, $8), -- fianna likes fossette's first completed garment
+        ($4, $9), -- fianna likes fossette's bias slip dress
+        ($5, $7), -- cian likes étienne's atelier dress
+        ($5, $10),-- cian likes cymbeline's coat that never dies
+        ($6, $7), -- noémie likes étienne's atelier dress
+        ($6, $9) -- noémie likes fossette's bias slip dress`,
+      [
+        etienne.id, // $1
+        fossette.id, // $2
+        cymbeline.id, // $3
+        fianna.id, // $4
+        cian.id, // $5
+        noemie.id, // $6
+        etienneAtelier.id, // $7
+        fossetteFirst.id, // $8
+        fossetteSlip.id, // $9
+        cymbelineCoat.id, // $10
+        cymbelineTrousers.id, // $11
+        noemieShirt.id, // $12
+      ],
+    );
 
     console.log("✓ Likes seeded");
 
@@ -253,8 +280,25 @@ async function seed() {
     // FOLLOWS
     // ============================================================
     await client.query(
-      `INSERT INTO follows (follower_id, following_id) VALUES ()`,
-      [],
+      `INSERT INTO follows (follower_id, following_id) VALUES 
+      ($1, $6), -- étienne follows noémie
+      ($2, $1), -- fossette follows étienne
+      ($2, $3), -- fossette follows cymbeline
+      ($3, $1), -- cymbeline follows étienne
+      ($4, $2), -- fianna follows fossette
+      ($5, $1), -- cian follows étienne
+      ($5, $2), -- cian follows cymbeline
+      ($5, $3), -- cian follows fossette
+      ($6, $1), -- noémie follows étienne
+      ($6, $3) -- noémie follows cymbeline`,
+      [
+        etienne.id, // $1
+        fossette.id, // $2
+        cymbeline.id, // $3
+        fianna.id, // $4
+        cian.id, // $5
+        noemie.id, // $6
+      ],
     );
 
     console.log("✓ Follows seeded");
