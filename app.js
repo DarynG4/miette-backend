@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import healthRouter from "./routes/health.js";
 import errorHandler from "./middleware/errorHandler.js";
+import authRouter from "./routes/auth.js";
 
 const app = express();
 
@@ -25,6 +26,8 @@ app.use(express.json());
 // separates frontend and backend (if on same domain) + adds clarity in network responses
 // e.g. GET /health inside the router becomes GET /api/health externally
 app.use("/api", healthRouter);
+
+app.use("/api", authRouter);
 
 // catch-all handler for any request that didn't match a defined route
 // every response the api sends (success or failure) should be JSON
